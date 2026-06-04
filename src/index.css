@@ -1,0 +1,16 @@
+@import "tailwindcss";
+
+* { box-sizing: border-box; }
+body { margin: 0; font-family: system-ui, -apple-system, sans-serif; }
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #f1f1f1; }
+::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #a1a1a1; }
+
+.annotation-highlight {
+  background-color: rgba(255, 235, 59, 0.4);
+  border-bottom: 2px solid #FFC107;
+  cursor: pointer;
+}
+.annotation-highlight:hover { background-color: rgba(255, 235, 59, 0.7); }

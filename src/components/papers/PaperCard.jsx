@@ -1,0 +1,66 @@
+import { useState } from 'react'
+import { useQueryClient, useQuery } from '@tanstack/react-query'
+import { FileText, Calendar, FolderPlus, TagIcon, Check, X, Trash2 } from 'lucide-react'
+import useAppStore from '../../stores/appStore'
+import { papersApi } from '../../api/papers'
+import { categoriesApi } from '../../api/categories'
+import { tagsApi } from '../../api/tags'
+import TagBadge from '../tags/TagBadge'
+
+export default function PaperCard({ paper }) {
+  const { openPaper, selectedPaperId, doRefresh } = useAppStore()
+  const isSelected = selectedPaperId === paper.id
+  const queryClient = useQueryClient()
+  const [ctxMenu, setCtxMenu] = useState(null)
+
+  const { data: categories = [] } = useQuery({ queryKey: ['categories'], queryFn: () => categoriesApi.list(), enabled: !!ctxMenu })
+  const { data: tags = [] } = useQuery({ queryKey: ['tags'], queryFn: () => tagsApi.list(), enabled: !!ctxMenu })
+
+  const ctx = (e) => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY }) }
+  const close = () => setCtxMenu(null)
+
+  const addCat = async (cid) => {
+    try { const d = await papersApi.get(paper.id); await papersApi.setCategories(paper.id, [...(d.categories||[]).map(c=>c.id), cid]); doRefresh(); close() } catch(e){alert(e.message)}
+  }
+  const toggleTag = async (tid) => {
+    try { const d = await papersApi.get(paper.id); const et = d.tags||[]; const has = et.some(t=>t.id===tid); await papersApi.setTags(paper.id, has ? et.filter(t=>t.id!==tid).map(t=>t.id) : [...et.map(t=>t.id), tid]); doRefresh(); close() } catch(e){alert(e.message)}
+  }
+  const del = async () => {
+    if (!confirm(`确定删除「${paper.title?.substring(0, 50)}」？`)) return
+    try { await papersApi.delete(paper.id); doRefresh(); close() } catch(e){alert(e.message)}
+  }
+
+  let authorText = paper.authors || ''
+  try { const a = JSON.parse(paper.authors); if (Array.isArray(a)) authorText = a.map(x => x.name).join(', ') } catch {}
+
+  return (<>
+    <button onClick={() => openPaper(paper.id)} onContextMenu={ctx}
+      className={`w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors ${isSelected ? 'bg-blue-50 border-l-2 border-l-blue-500' : 'border-l-2 border-l-transparent'}`}>
+      <div className="flex items-start gap-2">
+        <FileText size={16} className="text-gray-400 mt-0.5 flex-shrink-0" />
+        <div className="min-w-0 flex-1">
+          <h3 className="text-sm font-medium text-gray-800 line-clamp-2 leading-snug">{paper.title || '未命名文献'}</h3>
+          {authorText && <p className="text-xs text-gray-500 mt-1 line-clamp-1">{authorText}</p>}
+          <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-400">
+            {paper.year && <span><Calendar size={11} />{paper.year}</span>}
+            {paper.journal && <span className="line-clamp-1">{paper.journal}</span>}
+          </div>
+          {paper.tags?.length > 0 && <div className="flex flex-wrap gap-1 mt-1.5">{paper.tags.map(t => <TagBadge key={t.id} tag={t} />)}</div>}
+          {paper.categories?.length > 0 && <div className="flex flex-wrap gap-1 mt-1">{paper.categories.map(c => <span key={c.id} className="text-xs text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded">📁{c.name}</span>)}</div>}
+        </div>
+      </div>
+    </button>
+    {ctxMenu && <div className="fixed inset-0 z-50" onClick={close}>
+      <div style={{ position: 'fixed', left: ctxMenu.x, top: ctxMenu.y, zIndex: 60 }} className="bg-white rounded-lg shadow-xl border border-gray-200 py-1 min-w-[180px]" onClick={e => e.stopPropagation()}>
+        <div className="px-3 py-1.5 text-xs text-gray-400 font-medium">添加到分类</div>
+        {categories.map(c => <button key={c.id} onClick={() => addCat(c.id)} className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 flex items-center gap-2"><FolderPlus size={12} className="text-blue-500" /> {c.name}</button>)}
+        <div className="border-t border-gray-100 my-1" />
+        <div className="px-3 py-1.5 text-xs text-gray-400 font-medium">标签</div>
+        {tags.map(t => { const has = (paper.tags||[]).some(x=>x.id===t.id); return <button key={t.id} onClick={() => toggleTag(t.id)} className={`w-full text-left px-3 py-1.5 text-xs hover:bg-blue-50 flex items-center gap-2 ${has?'text-blue-600':'text-gray-700'}`}>{has?<Check size={12} className="text-green-500" />:<TagIcon size={12} />}<span className="w-2 h-2 rounded-full" style={{backgroundColor:t.color}} /> {t.name}</button> })}
+        <div className="border-t border-gray-100 my-1" />
+        <button onClick={del} className="w-full text-left px-3 py-1.5 text-xs text-red-500 hover:bg-red-50 flex items-center gap-2"><Trash2 size={12} /> 删除文献</button>
+        <button onClick={close} className="w-full text-left px-3 py-1.5 text-xs text-gray-500 hover:bg-gray-100 flex items-center gap-2"><X size={12} /> 关闭</button>
+      </div>
+    </div>}
+  </>)
+}
