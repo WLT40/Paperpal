@@ -55,7 +55,7 @@ def first_run():
     frame = tk.Frame(cred_win, bg="white", relief="solid", bd=1)
     frame.pack(pady=10, padx=20, fill="x")
 
-    info_text = f"邮箱：{email}\n密码：{password}\n\n储存路径：{folder}"
+    info_text = f"邮箱：{email}\n密码：{password}\n\n打开浏览器访问：\nhttp://localhost:8000\n\n储存路径：{folder}"
     text_widget = tk.Text(frame, height=6, font=("Consolas", 11), wrap="word", bd=0, padx=10, pady=10)
     text_widget.insert("1.0", info_text)
     text_widget.configure(state="disabled")  # read-only but selectable
