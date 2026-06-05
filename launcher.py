@@ -76,7 +76,7 @@ def first_run():
     copy_btn.pack(side="left", padx=5)
 
     def open_web():
-        webbrowser.open("https://wlt40.github.io/Paperpal/")
+        webbrowser.open("http://localhost:5173")
 
     web_btn = tk.Button(btn_frame, text="🌐 打开 PaperPal 网站", command=open_web,
                         font=("Microsoft YaHei", 10), bg="#4CAF50", fg="white",
@@ -110,7 +110,7 @@ def main():
         sys.path.insert(0, sys._MEIPASS)
 
     # Open website
-    webbrowser.open("https://wlt40.github.io/Paperpal/")
+    webbrowser.open("http://localhost:5173")
 
     import uvicorn
     print(f"PaperPal 后端启动中... 数据: {folder}")
