@@ -7,46 +7,60 @@ import AppLayout from './components/layout/AppLayout';
 function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [backendOnline, setBackendOnline] = useState(false);
+  const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    // Check if already logged in
+    fetch('http://localhost:8000/api/health')
+      .then(r => r.ok ? r.json() : Promise.reject())
+      .then(() => setBackendOnline(true))
+      .catch(() => setBackendOnline(false))
+      .finally(() => setChecking(false));
+  }, []);
+
+  useEffect(() => {
+    if (!backendOnline) return;
     const token = api.getToken();
     if (token) {
-      // Validate token
-      fetch('/api/auth/me', {
-        headers: { Authorization: `Bearer ${token}` },
-      })
+      fetch('http://localhost:8000/api/auth/me', { headers: { Authorization: `Bearer ${token}` } })
         .then(r => r.ok ? r.json() : Promise.reject())
         .then(data => setUser(data))
         .catch(() => api.clearToken())
         .finally(() => setLoading(false));
-    } else {
-      setLoading(false);
-    }
+    } else { setLoading(false); }
+    const h = () => setUser(null);
+    window.addEventListener('paperpal-auth-error', h);
+    return () => window.removeEventListener('paperpal-auth-error', h);
+  }, [backendOnline]);
 
-    // Listen for auth errors from API client
-    const handler = () => setUser(null);
-    window.addEventListener('paperpal-auth-error', handler);
-    return () => window.removeEventListener('paperpal-auth-error', handler);
-  }, []);
+  if (checking) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><p className="text-gray-400">正在连接本地服务...</p></div>;
 
-  if (loading) {
+  if (!backendOnline) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <p className="text-gray-400">加载中...</p>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+        <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md text-center">
+          <h1 className="text-2xl font-bold text-gray-800 mb-4">⚡ PaperPal</h1>
+          <p className="text-sm text-gray-500 mb-6">AI 驱动的文献深度阅读工具</p>
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6 text-left">
+            <p className="text-sm font-medium text-yellow-800 mb-2">未检测到本地服务</p>
+            <p className="text-xs text-yellow-700 mb-2">下载 ZIP 压缩包 → 解压 → 双击 paperpal-backend.exe</p>
+            <p className="text-xs text-yellow-700 font-medium">运行后打开 http://localhost:8000</p>
+          </div>
+          <div className="space-y-2 mb-4">
+            <a href="https://github.com/WLT40/Paperpal/raw/master/docs/paperpal-backend.zip"
+              className="block w-full py-3 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">📥 线路一：GitHub 下载</a>
+            <a href="https://pan.baidu.com/s/1ux8Zhjc300sW3rPgUe1UqA?pwd=y2mc" target="_blank"
+              className="block w-full py-3 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700">📥 线路二：百度网盘（提取码 y2mc）</a>
+          </div>
+          <p className="text-xs text-gray-400">下载解压后，双击 paperpal-backend.exe，打开 http://localhost:8000 注册使用。</p>
+        </div>
       </div>
     );
   }
 
-  if (!user) {
-    return <LoginPage onLogin={setUser} />;
-  }
-
-  return (
-    <Routes>
-      <Route path="/*" element={<AppLayout user={user} onLogout={() => { api.clearToken(); setUser(null); }} />} />
-    </Routes>
-  );
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><p className="text-gray-400">加载中...</p></div>;
+  if (!user) return <LoginPage onLogin={setUser} />;
+  return <Routes><Route path="/*" element={<AppLayout user={user} onLogout={() => { api.clearToken(); setUser(null); }} />} /></Routes>;
 }
 
 export default App;
