@@ -1,13 +1,10 @@
-"""
-PaperPal Backend Launcher v3
-"""
-import os, sys, json, hashlib, secrets, webbrowser, time
+"""PaperPal Backend Launcher v4 — start server first, then show credentials"""
+import os, sys, json, hashlib, secrets, webbrowser, threading, time
 
 CONFIG_FILE = "paperpal_config.json"
 
 def get_data_dir():
-    if getattr(sys, 'frozen', False):
-        return os.path.dirname(sys.executable)
+    if getattr(sys, 'frozen', False): return os.path.dirname(sys.executable)
     return os.path.dirname(os.path.abspath(__file__))
 
 def get_config():
@@ -18,11 +15,11 @@ def get_config():
 
 def save_config(data):
     with open(os.path.join(get_data_dir(), CONFIG_FILE), "w") as f:
-        json.dump(data, f)
+        json.dump(data, f, ensure_ascii=False)
 
 def first_run():
     import tkinter as tk
-    from tkinter import filedialog
+    from tkinter import filedialog, messagebox
 
     root = tk.Tk()
     root.withdraw()
@@ -43,22 +40,22 @@ def first_run():
     cfg = {"storage_dir": folder, "email": email, "password": password}
     save_config(cfg)
 
-    # Show credentials in a COPYABLE window
+    # Show credentials in a simple window
     cred_win = tk.Toplevel(root)
-    cred_win.title("PaperPal 账号已生成 - 请保存")
-    cred_win.geometry("480x320")
+    cred_win.title("PaperPal 账号已生成")
+    cred_win.geometry("500x370")
     cred_win.resizable(False, False)
 
-    tk.Label(cred_win, text="你的 PaperPal 账号", font=("Microsoft YaHei", 14, "bold")).pack(pady=(20, 5))
-    tk.Label(cred_win, text="请截图或复制保存，打开网页后使用", font=("Microsoft YaHei", 9), fg="gray").pack()
+    tk.Label(cred_win, text="你的 PaperPal 账号", font=("Microsoft YaHei", 14, "bold")).pack(pady=(20, 8))
+    tk.Label(cred_win, text="请截图保存，然后打开浏览器访问 http://localhost:8000", font=("Microsoft YaHei", 9), fg="gray").pack()
 
     frame = tk.Frame(cred_win, bg="white", relief="solid", bd=1)
     frame.pack(pady=10, padx=20, fill="x")
 
-    info_text = f"邮箱：{email}\n密码：{password}\n\n打开浏览器访问：\nhttp://localhost:8000\n\n储存路径：{folder}"
-    text_widget = tk.Text(frame, height=6, font=("Consolas", 11), wrap="word", bd=0, padx=10, pady=10)
+    info_text = f"邮箱：{email}\n密码：{password}\n\n打开浏览器访问：http://localhost:8000\n\n储存路径：{folder}"
+    text_widget = tk.Text(frame, height=7, font=("Consolas", 11), wrap="word", bd=0, padx=10, pady=10)
     text_widget.insert("1.0", info_text)
-    text_widget.configure(state="disabled")  # read-only but selectable
+    text_widget.configure(state="disabled")
     text_widget.pack(fill="x")
 
     def copy_all():
@@ -67,41 +64,39 @@ def first_run():
         copy_btn.config(text="已复制 ✓")
         copy_btn.after(2000, lambda: copy_btn.config(text="📋 复制账号密码"))
 
-    btn_frame = tk.Frame(cred_win)
-    btn_frame.pack(pady=15)
-
-    copy_btn = tk.Button(btn_frame, text="📋 复制账号密码", command=copy_all,
-                         font=("Microsoft YaHei", 10), bg="#4A90D9", fg="white",
-                         padx=20, pady=5, bd=0, cursor="hand2")
-    copy_btn.pack(side="left", padx=5)
-
     def open_web():
         webbrowser.open("http://localhost:8000")
 
-    web_btn = tk.Button(btn_frame, text="🌐 打开 PaperPal 网站", command=open_web,
-                        font=("Microsoft YaHei", 10), bg="#4CAF50", fg="white",
-                        padx=20, pady=5, bd=0, cursor="hand2")
+    btn_frame = tk.Frame(cred_win)
+    btn_frame.pack(pady=15)
+
+    copy_btn = tk.Button(btn_frame, text="📋 复制账号密码", command=copy_all, font=("Microsoft YaHei", 10), bg="#4A90D9", fg="white", padx=20, pady=5, bd=0, cursor="hand2")
+    copy_btn.pack(side="left", padx=5)
+
+    web_btn = tk.Button(btn_frame, text="🌐 打开 PaperPal (localhost:8000)", command=open_web, font=("Microsoft YaHei", 10), bg="#4CAF50", fg="white", padx=20, pady=5, bd=0, cursor="hand2")
     web_btn.pack(side="left", padx=5)
 
-    tk.Label(cred_win, text="⚠️ 关闭此窗口后，双击 exe 即可重新启动服务", font=("Microsoft YaHei", 8), fg="red").pack(side="bottom", pady=10)
+    tk.Label(cred_win, text="⚠️ 请保持此窗口打开，关闭窗口将停止服务", font=("Microsoft YaHei", 9), fg="red").pack(pady=(5, 0))
+    tk.Label(cred_win, text="点击下方按钮打开网站，复制账号密码登录", font=("Microsoft YaHei", 8), fg="gray").pack(pady=(0, 10))
 
-    cred_win.protocol("WM_DELETE_WINDOW", lambda: [root.destroy()])
-    root.deiconify()
-    cred_win.lift()
-    cred_win.focus_force()
-    root.mainloop()
+    # Start the tkinter event loop in a separate thread so main() can continue
+    def tk_loop():
+        cred_win.lift()
+        cred_win.focus_force()
+        root.mainloop()
 
+    t = threading.Thread(target=tk_loop, daemon=True)
+    t.start()
     return cfg
+
 
 def main():
     cfg = get_config()
     if not cfg or not os.path.exists(cfg.get("storage_dir", "")) or not cfg.get("email"):
         cfg = first_run()
-        if not cfg:
-            return
+        if not cfg: return
 
     folder = cfg["storage_dir"]
-
     os.environ["PDF_STORAGE_DIR"] = os.path.join(folder, "pdf_storage")
     os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{os.path.join(folder, 'data', 'paperpal.db')}"
     os.environ["SYNC_DATABASE_URL"] = f"sqlite:///{os.path.join(folder, 'data', 'paperpal.db')}"
@@ -109,12 +104,25 @@ def main():
     if getattr(sys, 'frozen', False):
         sys.path.insert(0, sys._MEIPASS)
 
-    # Open website
-    webbrowser.open("http://localhost:8000")
-
     import uvicorn
     print(f"PaperPal 后端启动中... 数据: {folder}")
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, log_level="warning")
+
+    def open_browser():
+        time.sleep(2)
+        webbrowser.open("http://localhost:8000")
+
+    threading.Thread(target=open_browser, daemon=True).start()
+
+    try:
+        uvicorn.run("app.main:app", host="0.0.0.0", port=8000, log_level="info")
+    except Exception as e:
+        import traceback
+        err_file = os.path.join(get_data_dir(), "paperpal-error.log")
+        with open(err_file, "w", encoding="utf-8") as f:
+            f.write(traceback.format_exc())
+        print(f"启动失败: {e}\n错误日志: {err_file}")
+        input("按回车退出...")
+
 
 if __name__ == "__main__":
     main()
