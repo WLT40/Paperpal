@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Zap } from 'lucide-react';
 import { authApi } from '../../api/auth';
 import { api } from '../../api/client';
 
@@ -29,7 +30,7 @@ export default function LoginPage({ onLogin }) {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
       <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-sm">
         <div className="text-center mb-6">
-          <h1 className="text-2xl font-bold text-gray-800">📋 PaperPal</h1>
+          <h1 className="text-2xl font-bold text-gray-800"><Zap size={28} className="text-purple-500 inline" /> PaperPal</h1>
           <p className="text-sm text-gray-500 mt-1">AI 驱动的文献深度阅读</p>
         </div>
 

@@ -1,13 +1,38 @@
 import { useState } from 'react'
-import { BookOpen, User, Calendar, FileText, Sparkles, Loader2 } from 'lucide-react'
+import { BookOpen, User, Calendar, FileText, Sparkles, Loader2, Plus, X } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
 import { aiApi } from '../../api/auth'
+import { papersApi } from '../../api/papers'
 import TagBadge from '../tags/TagBadge'
 
 export default function PaperDetail({ paper }) {
   const [aiLoading, setAiLoading] = useState(false)
   const [aiError, setAiError] = useState('')
+  const [newKeyword, setNewKeyword] = useState('')
+  const queryClient = useQueryClient()
 
   if (!paper) return null
+
+  // Parse existing keywords
+  let keywords = []
+  try { const k = JSON.parse(paper.keywords); if (Array.isArray(k)) keywords = k } catch {}
+
+  const addKeyword = async () => {
+    const kw = newKeyword.trim()
+    if (!kw || keywords.includes(kw)) return
+    const updated = [...keywords, kw]
+    await papersApi.update(paper.id, { keywords: JSON.stringify(updated) })
+    queryClient.invalidateQueries({ queryKey: ['paper', paper.id] })
+    queryClient.invalidateQueries({ queryKey: ['paperlist'] })
+    setNewKeyword('')
+  }
+
+  const removeKeyword = async (kw) => {
+    const updated = keywords.filter(k => k !== kw)
+    await papersApi.update(paper.id, { keywords: JSON.stringify(updated) })
+    queryClient.invalidateQueries({ queryKey: ['paper', paper.id] })
+    queryClient.invalidateQueries({ queryKey: ['paperlist'] })
+  }
 
   let authorText = paper.authors || ''
   try {
@@ -105,26 +130,26 @@ export default function PaperDetail({ paper }) {
         </div>
       )}
 
-      {/* Author keywords */}
-      {paper.keywords && (
-        <div>
-          <h3 className="text-xs font-medium text-gray-500 mb-1 uppercase tracking-wide">关键词</h3>
-          <div className="flex flex-wrap gap-1">
-            {(() => {
-              try {
-                const kws = JSON.parse(paper.keywords)
-                return (Array.isArray(kws) ? kws : []).map((kw, i) => (
-                  <span key={i} className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-xs">
-                    {typeof kw === 'string' ? kw : kw.name || kw}
-                  </span>
-                ))
-              } catch {
-                return null
-              }
-            })()}
-          </div>
+      {/* Keywords - editable */}
+      <div>
+        <h3 className="text-xs font-bold text-gray-900 mb-1">关键词</h3>
+        <div className="flex flex-wrap gap-1 mb-2">
+          {keywords.map((kw, i) => (
+            <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs group">
+              {typeof kw === 'string' ? kw : kw.name || kw}
+              <button onClick={() => removeKeyword(kw)} className="opacity-0 group-hover:opacity-100 hover:text-red-500"><X size={10} /></button>
+            </span>
+          ))}
+          {keywords.length === 0 && <span className="text-xs text-gray-400">暂无关键词，可手动添加或 AI 生成</span>}
         </div>
-      )}
+        <div className="flex gap-1">
+          <input value={newKeyword} onChange={e => setNewKeyword(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && addKeyword()}
+            placeholder="添加关键词..." className="flex-1 px-2 py-1 text-xs border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-400" />
+          <button onClick={addKeyword} disabled={!newKeyword.trim()}
+            className="px-2 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600 disabled:opacity-30"><Plus size={12} /></button>
+        </div>
+      </div>
 
       {/* Tags */}
       {paper.tags && paper.tags.length > 0 && (

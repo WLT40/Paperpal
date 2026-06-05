@@ -3,7 +3,7 @@ from PyInstaller.utils.hooks import collect_all
 
 datas = [('D:/paperpal/backend/app', 'app')]
 binaries = []
-hiddenimports = ['uvicorn', 'fastapi', 'sqlalchemy', 'aiosqlite', 'pymupdf', 'httpx', 'tkinter']
+hiddenimports = ['uvicorn', 'fastapi', 'sqlalchemy', 'aiosqlite', 'pymupdf', 'httpx', 'tkinter', 'passlib', 'jose']
 tmp_ret = collect_all('tkinter')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 

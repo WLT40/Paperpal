@@ -24,6 +24,8 @@ const useAppStore = create((set) => ({
   selectTag: (id) => set(s => ({ selectedTagId: id, selectedCategoryId: null, activeView: 'papers', refreshKey: s.refreshKey + 1 })),
   selectAll: () => set(s => ({ selectedCategoryId: null, selectedTagId: null, activeView: 'papers', refreshKey: s.refreshKey + 1 })),
   doRefresh: () => set(s => ({ refreshKey: s.refreshKey + 1 })),
+  colorKey: 0,
+  updateColors: () => set(s => ({ colorKey: s.colorKey + 1 })),
 }));
 
 export default useAppStore;

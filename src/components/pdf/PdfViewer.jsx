@@ -1,19 +1,20 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, X, Tag, Image } from 'lucide-react'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQueryClient, useQuery } from '@tanstack/react-query'
 import useAppStore from '../../stores/appStore'
 import { api } from '../../api/client'
 import { papersApi } from '../../api/papers'
 import { annotationsApi } from '../../api/annotations'
 
 export default function PdfViewer() {
-  const { selectedPaperId, pdfPageNumber, pdfScale, setPdfPageNumber, setPdfScale } = useAppStore()
+  const { selectedPaperId, pdfPageNumber, pdfScale, setPdfPageNumber, setPdfScale, setSelectedAnnotationId, setRightPanelTab } = useAppStore()
   const [totalPages, setTotalPages] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const canvasRef = useRef(null)
   const textOverlayRef = useRef(null)
   const containerRef = useRef(null)
+  const popupRef = useRef(null)
   const pdfDocRef = useRef(null)
   const queryClient = useQueryClient()
 
@@ -24,9 +25,35 @@ export default function PdfViewer() {
   const [popupLabel, setPopupLabel] = useState('')
   const [popupHasFigure, setPopupHasFigure] = useState(false)
   const [popupSaving, setPopupSaving] = useState(false)
+  const [popupColor, setPopupColor] = useState('#FFEB3B')
+  const [pdfMode, setPdfMode] = useState('annotate')
+
+  const HIGHLIGHT_COLORS = ['#FFEB3B', '#FF9800', '#F44336', '#4CAF50', '#2196F3', '#9C27B0', '#795548', '#607D8B']
 
   const scale = pdfScale || 1.0
   const page = pdfPageNumber || 1
+
+  // Annotations - manually managed for instant updates
+  const [localAnnotations, setLocalAnnotations] = useState([])
+
+  const fetchAnnotations = useCallback(async () => {
+    if (!selectedPaperId) return
+    try {
+      const result = await annotationsApi.list(selectedPaperId)
+      setLocalAnnotations(result || [])
+    } catch (_) { setLocalAnnotations([]) }
+  }, [selectedPaperId])
+
+  useEffect(() => { fetchAnnotations() }, [fetchAnnotations])
+
+  // Listen for refresh signal from other components (e.g., annotation delete)
+  useEffect(() => {
+    const handler = () => fetchAnnotations()
+    window.addEventListener('pp-refresh-annotations', handler)
+    return () => window.removeEventListener('pp-refresh-annotations', handler)
+  }, [fetchAnnotations])
+
+  const pageAnnotations = localAnnotations.filter(a => a.page_number === page)
 
   // Load PDF
   useEffect(() => {
@@ -65,51 +92,96 @@ export default function PdfViewer() {
       const p = await doc.getPage(page)
       const vp = p.getViewport({ scale })
 
-      // Canvas
       const canvas = canvasRef.current
       canvas.width = vp.width
       canvas.height = vp.height
       await p.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise
       if (cancelled) return
 
-      // Build transparent text overlay
+      // Store text content for overlay rebuilding
+      const textContent = await p.getTextContent()
+      window.__ppLastText = { textContent, vp }
+
       const overlay = textOverlayRef.current
       if (!overlay) return
       overlay.innerHTML = ''
       overlay.style.width = vp.width + 'px'
       overlay.style.height = vp.height + 'px'
 
-      const textContent = await p.getTextContent()
-      for (const item of textContent.items) {
-        if (!item.str || !item.str.trim()) continue
-        const tx = item.transform
-        // PDF coords: tx[4]=x, tx[5]=y (bottom-left). Transform to viewport (top-left origin)
-        const x = tx[4] * scale
-        const y = vp.height - tx[5] * scale - item.height * scale
-        const w = item.width * scale
-        const h = item.height * scale
+      // In annotate mode: add transparent text for selection
+      if (pdfMode === 'annotate') {
+        overlay.style.pointerEvents = 'auto'
+        for (const item of textContent.items) {
+          if (!item.str || !item.str.trim()) continue
+          const tx = item.transform
+          const x = tx[4] * scale
+          const y = vp.height - tx[5] * scale
+          const fontSize = Math.abs(tx[0]) * scale || 10
+          const w = item.width * scale || fontSize * 3
+          if (w < 1) continue
 
-        if (w < 2 || h < 2) continue // skip tiny items
-
-        const span = document.createElement('span')
-        span.textContent = item.str
-        span.style.cssText = `
-          position:absolute;left:${x}px;top:${y}px;
-          width:${w}px;height:${h}px;
-          font-size:${h * 0.8}px;line-height:${h}px;
-          color:transparent;cursor:text;
-          white-space:nowrap;overflow:hidden;
-          pointer-events:auto;
-        `
-        overlay.appendChild(span)
+          const span = document.createElement('span')
+          span.textContent = item.str
+          span.style.cssText = `
+            position:absolute;left:${x}px;top:${y - fontSize * 0.9}px;
+            width:${w}px;height:${fontSize * 1.2}px;
+            font-size:${fontSize}px;line-height:${fontSize * 1.2}px;
+            color:transparent;white-space:nowrap;overflow:hidden;
+            pointer-events:auto;cursor:text;
+          `
+          overlay.appendChild(span)
+        }
+      } else {
+        overlay.style.pointerEvents = 'none'
       }
+
+      // Add highlight boxes for existing annotations
+      for (const ann of pageAnnotations) {
+        const annText = (ann.highlighted_text || '').trim()
+        if (!annText) continue
+        const color = ann.color || '#FFEB3B'
+        let foundItems = []
+        for (const item of textContent.items) {
+          if (!item.str || !item.str.trim()) continue
+          if (item.str.includes(annText.substring(0, 15)) || annText.includes(item.str.trim())) foundItems.push(item)
+        }
+        if (foundItems.length === 0) {
+          const words = annText.split(/\s+/).filter(w => w.length > 2)
+          for (const item of textContent.items) {
+            if (!item.str || !item.str.trim()) continue
+            if (words.some(w => item.str.includes(w))) foundItems.push(item)
+          }
+        }
+        if (foundItems.length > 0) {
+          let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+          for (const item of foundItems) {
+            const tx = item.transform
+            const x = tx[4] * scale; const y = vp.height - tx[5] * scale
+            const h = Math.abs(tx[0]) * scale || 10
+            minX = Math.min(minX, x); minY = Math.min(minY, y - h)
+            maxX = Math.max(maxX, x + (item.width * scale || 50)); maxY = Math.max(maxY, y)
+          }
+          const box = document.createElement('div')
+          box.className = 'pp-highlight'
+          box.style.cssText = `position:absolute;left:${minX - 2}px;top:${minY - 2}px;width:${maxX - minX + 4}px;height:${maxY - minY + 4}px;background:${color}30;border:2px solid ${color};border-radius:3px;pointer-events:auto;cursor:pointer;z-index:5;`
+          box.title = (ann.note || '标注') + ' | 第' + ann.page_number + '页'
+          box.onmouseenter = () => { box.style.background = color + '60' }
+          box.onmouseleave = () => { box.style.background = color + '30' }
+          box.onclick = (e) => { e.stopPropagation(); setSelectedAnnotationId(ann.id); setPdfPageNumber(ann.page_number); setRightPanelTab('annotations') }
+          overlay.appendChild(box)
+        }
+      }
+
     }
     render()
     return () => { cancelled = true }
-  }, [pdfDocRef.current, page, scale])
+  }, [pdfDocRef.current, page, scale, localAnnotations])
 
   // Handle text selection
-  const handleMouseUp = useCallback(() => {
+  const handleMouseUp = useCallback((e) => {
+    // Ignore clicks inside the popup
+    if (popupRef.current?.contains(e.target)) return
+
     setTimeout(() => {
       const sel = window.getSelection()
       const text = sel?.toString()?.trim()
@@ -136,16 +208,23 @@ export default function PdfViewer() {
   const handleSave = async () => {
     setPopupSaving(true)
     try {
+      // Combine label and note
+      let fullNote = ''
+      if (popupLabel.trim()) fullNote += '🏷️ ' + popupLabel.trim()
+      if (popupNote.trim()) fullNote += (fullNote ? '\n' : '') + popupNote.trim()
+
       await annotationsApi.create(selectedPaperId, {
         page_number: page,
+        section_name: `第${page}页`,
         highlighted_text: selectedText,
-        note: popupNote || undefined,
+        note: fullNote || undefined,
         has_figure: popupHasFigure,
-        color: '#FFEB3B',
+        color: popupColor,
         annotation_type: 'highlight',
         label_ids: [],
       })
       queryClient.invalidateQueries({ queryKey: ['annotations', selectedPaperId] })
+      await fetchAnnotations()
       setShowPopup(false)
       window.getSelection()?.removeAllRanges()
     } catch (e) { alert('保存失败: ' + e.message) }
@@ -169,16 +248,37 @@ export default function PdfViewer() {
           <span className="text-xs text-gray-500 w-12 text-center">{Math.round(scale * 100)}%</span>
           <button onClick={() => setPdfScale(Math.min(3, scale + 0.25))} className="p-1 hover:bg-gray-100 rounded text-gray-600"><ZoomIn size={18} /></button>
         </div>
-        <span className="text-xs text-gray-400">选中文字标注</span>
+        {/* Mode switch */}
+        <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5">
+          <button onClick={() => setPdfMode('annotate')}
+            className={`px-2 py-1 text-xs rounded-md transition-colors ${pdfMode === 'annotate' ? 'bg-white text-blue-600 shadow-sm font-medium' : 'text-gray-500 hover:text-gray-700'}`}>
+            🖊️ 标注
+          </button>
+          <button onClick={() => setPdfMode('move')}
+            className={`px-2 py-1 text-xs rounded-md transition-colors ${pdfMode === 'move' ? 'bg-white text-blue-600 shadow-sm font-medium' : 'text-gray-500 hover:text-gray-700'}`}>
+            ✋ 移动
+          </button>
+        </div>
       </div>
 
-      <div ref={containerRef} className="flex-1 overflow-auto flex justify-center p-4" onMouseUp={handleMouseUp}>
+      <div ref={containerRef} className="flex-1 overflow-auto p-4" style={{ overflowX: 'auto', overflowY: 'auto', cursor: pdfMode === 'move' ? 'grab' : 'default' }}
+        onMouseUp={pdfMode === 'annotate' ? handleMouseUp : undefined}
+        onMouseDown={pdfMode === 'move' ? (e) => {
+          if (popupRef.current?.contains(e.target)) return
+          const el = containerRef.current; if (!el) return
+          el.style.cursor = 'grabbing'; el.style.userSelect = 'none'
+          const sx = e.clientX, sy = e.clientY, ssx = el.scrollLeft, ssy = el.scrollTop
+          const onMove = (ev) => { el.scrollLeft = ssx + sx - ev.clientX; el.scrollTop = ssy + sy - ev.clientY }
+          const onUp = () => { el.style.cursor = 'grab'; el.style.userSelect = ''; document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp) }
+          document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp)
+        } : undefined}
+      >
         <div style={{ position: 'relative', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', background: '#fff' }}>
           <canvas ref={canvasRef} style={{ display: 'block' }} />
           <div ref={textOverlayRef} style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }} />
 
           {showPopup && (
-            <div style={{ position: 'fixed', left: popupPos.x, top: popupPos.y, zIndex: 9999 }}>
+            <div ref={popupRef} style={{ position: 'fixed', left: popupPos.x, top: popupPos.y, zIndex: 9999 }}>
               <div className="bg-white rounded-xl shadow-2xl border border-gray-200 p-3 w-72">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs font-semibold text-gray-700">📝 添加标注</span>
@@ -195,6 +295,16 @@ export default function PdfViewer() {
                     <label className="text-xs text-gray-500 mb-1 block">笔记</label>
                     <textarea value={popupNote} onChange={e => setPopupNote(e.target.value)}
                       placeholder="这段讲的是什么..." rows={2} className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-400 resize-none" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 mb-1 block">高亮颜色</label>
+                    <div className="flex gap-1.5 flex-wrap">
+                      {HIGHLIGHT_COLORS.map(c => (
+                        <button key={c} onClick={() => setPopupColor(c)}
+                          className="w-5 h-5 rounded-full border-2 transition-transform hover:scale-110"
+                          style={{ backgroundColor: c, borderColor: popupColor === c ? '#333' : 'transparent' }} />
+                      ))}
+                    </div>
                   </div>
                   <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer">
                     <input type="checkbox" checked={popupHasFigure} onChange={e => setPopupHasFigure(e.target.checked)} className="rounded" />
