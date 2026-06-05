@@ -85,6 +85,10 @@ def main():
     if email and password:
         _ensure_user(folder, email, password)
 
+    # Ensure PyInstaller-bundled modules are found
+    if getattr(sys, 'frozen', False):
+        sys.path.insert(0, sys._MEIPASS)
+
     import uvicorn
     print(f"PaperPal 后端启动中...")
     print(f"数据: {folder}")
