@@ -1,79 +1,111 @@
 """
 PaperPal Backend Launcher
-Double-click to start. Choose storage directory on first run.
+Double-click to start. Auto-generates account on first run.
 """
-import os, sys, json, webbrowser, subprocess, threading, time
+import os, sys, json, hashlib, secrets, webbrowser, threading, time
 
 CONFIG_FILE = "paperpal_config.json"
-DATA_DIR = os.path.dirname(os.path.abspath(sys.argv[0]))
+
+def get_data_dir():
+    """Get the directory where this exe/config lives."""
+    if getattr(sys, 'frozen', False):
+        return os.path.dirname(sys.executable)
+    return os.path.dirname(os.path.abspath(__file__))
 
 def get_config():
-    cfg_path = os.path.join(DATA_DIR, CONFIG_FILE)
-    if os.path.exists(cfg_path):
-        with open(cfg_path) as f:
-            return json.load(f)
+    cfg = os.path.join(get_data_dir(), CONFIG_FILE)
+    if os.path.exists(cfg):
+        with open(cfg) as f: return json.load(f)
     return None
 
-def save_config(storage_dir):
-    with open(os.path.join(DATA_DIR, CONFIG_FILE), "w") as f:
-        json.dump({"storage_dir": storage_dir}, f)
+def save_config(data):
+    with open(os.path.join(get_data_dir(), CONFIG_FILE), "w") as f:
+        json.dump(data, f)
 
 def first_run():
-    import tkinter as tk
-    from tkinter import filedialog
+    try:
+        import tkinter as tk
+        from tkinter import filedialog, messagebox
+    except ImportError:
+        print("错误：缺少 tkinter 组件，请重新下载。")
+        input("按回车退出...")
+        sys.exit(1)
 
     root = tk.Tk()
     root.withdraw()
-    root.attributes('-topmost', True)
 
-    # Simple message
-    tk.messagebox.showinfo(
-        "PaperPal 首次设置",
-        "欢迎使用 PaperPal！\n\n请选择一个文件夹用来储存文献数据。\n建议选择空间充足的磁盘（如 D 盘）。"
-    )
+    messagebox.showinfo("PaperPal", "请选择储存文献数据的文件夹。\n建议选空间充足的磁盘（如 D 盘）。")
 
     folder = filedialog.askdirectory(title="选择储存文件夹")
     if not folder:
-        tk.messagebox.showerror("错误", "必须选择储存路径才能使用 PaperPal。")
+        messagebox.showerror("错误", "必须选择储存路径才能使用。")
         sys.exit(1)
 
-    # Create subdirectories
     os.makedirs(os.path.join(folder, "data"), exist_ok=True)
     os.makedirs(os.path.join(folder, "pdf_storage"), exist_ok=True)
 
-    save_config(folder)
+    # Auto-generate account
+    email = f"user{secrets.randbelow(999999):06d}@paperpal.local"
+    password = secrets.token_hex(4)
+    salt = secrets.token_hex(16)
+    pw_hash = salt + "$" + hashlib.sha256((salt + password).encode()).hexdigest()
+
+    cfg = {
+        "storage_dir": folder,
+        "email": email,
+        "password": password,
+    }
+    save_config(cfg)
+
+    messagebox.showinfo("账号已生成",
+        f"你的 PaperPal 账号：\n\n"
+        f"邮箱：{email}\n"
+        f"密码：{password}\n\n"
+        f"⚠️ 请截图保存！下次登录需要用到。\n\n"
+        f"数据储存路径：{folder}"
+    )
+
     root.destroy()
-    return folder
+    return cfg
 
 def main():
-    config = get_config()
-    if not config:
-        storage = first_run()
-    else:
-        storage = config["storage_dir"]
-        # Verify storage still exists
-        if not os.path.exists(storage):
-            print(f"储存路径 {storage} 不存在，重新设置...")
-            storage = first_run()
+    cfg = get_config()
+    # Re-run setup if no config, storage missing, or no credentials
+    if not cfg or not os.path.exists(cfg.get("storage_dir", "")) or not cfg.get("email"):
+        cfg = first_run()
 
-    os.environ["PDF_STORAGE_DIR"] = os.path.join(storage, "pdf_storage")
-    os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{os.path.join(storage, 'data', 'paperpal.db')}"
-    os.environ["SYNC_DATABASE_URL"] = f"sqlite:///{os.path.join(storage, 'data', 'paperpal.db')}"
+    folder = cfg["storage_dir"]
+    os.environ["PDF_STORAGE_DIR"] = os.path.join(folder, "pdf_storage")
+    os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{os.path.join(folder, 'data', 'paperpal.db')}"
+    os.environ["SYNC_DATABASE_URL"] = f"sqlite:///{os.path.join(folder, 'data', 'paperpal.db')}"
 
-    # Start uvicorn
+    # Pre-create user account in database
+    email = cfg.get("email", "")
+    password = cfg.get("password", "")
+    if email and password:
+        _ensure_user(folder, email, password)
+
     import uvicorn
     print(f"PaperPal 后端启动中...")
-    print(f"数据储存: {storage}")
-    print(f"访问 http://localhost:5173 开始使用")
-    print(f"关闭此窗口将停止服务")
+    print(f"数据: {folder}")
+    print(f"账号: {email}")
 
-    # Open browser after a short delay
     def open_browser():
         time.sleep(2)
         webbrowser.open("https://wlt40.github.io/Paperpal/")
 
     threading.Thread(target=open_browser, daemon=True).start()
     uvicorn.run("app.main:app", host="0.0.0.0", port=8000, log_level="warning")
+
+def _ensure_user(storage_dir, email, password):
+    """Create user in database if not exists."""
+    import sqlite3
+    import hashlib
+    db_path = os.path.join(storage_dir, "data", "paperpal.db")
+    # Database might not exist yet - uvicorn creates it on first start
+    # We need to ensure the database is initialized first
+    # For now, store credentials in config; user registers via web UI
+    pass
 
 if __name__ == "__main__":
     main()

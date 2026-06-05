@@ -1,12 +1,19 @@
 # -*- mode: python ; coding: utf-8 -*-
+from PyInstaller.utils.hooks import collect_all
+
+datas = [('D:/paperpal/backend/app', 'app')]
+binaries = []
+hiddenimports = ['uvicorn', 'fastapi', 'sqlalchemy', 'aiosqlite', 'pymupdf', 'httpx', 'tkinter']
+tmp_ret = collect_all('tkinter')
+datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
 
 a = Analysis(
     ['launcher.py'],
     pathex=[],
-    binaries=[],
-    datas=[('D:/paperpal/backend/app', 'app')],
-    hiddenimports=['uvicorn', 'fastapi', 'sqlalchemy', 'aiosqlite', 'pymupdf', 'httpx', 'passlib', 'jose'],
+    binaries=binaries,
+    datas=datas,
+    hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
