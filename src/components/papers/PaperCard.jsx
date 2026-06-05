@@ -1,17 +1,21 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQueryClient, useQuery } from '@tanstack/react-query'
-import { FileText, Calendar, FolderPlus, TagIcon, Check, X, Trash2 } from 'lucide-react'
+import { FileText, Zap, FolderPlus, TagIcon, Check, X, Trash2 } from 'lucide-react'
 import useAppStore from '../../stores/appStore'
 import { papersApi } from '../../api/papers'
 import { categoriesApi } from '../../api/categories'
 import { tagsApi } from '../../api/tags'
 import TagBadge from '../tags/TagBadge'
 
+const DC = { title: '#1a1a1a', author: '#666', year: '#888', journal: '#888' };
+function getColors() { try { return {...DC,...JSON.parse(localStorage.getItem('pp-colors')||'{}')} } catch { return DC } }
+
 export default function PaperCard({ paper }) {
-  const { openPaper, selectedPaperId, doRefresh } = useAppStore()
+  const { openPaper, selectedPaperId, doRefresh, colorKey } = useAppStore()
   const isSelected = selectedPaperId === paper.id
   const queryClient = useQueryClient()
   const [ctxMenu, setCtxMenu] = useState(null)
+  const colors = getColors()  // Re-read every render; colorKey change triggers re-render
 
   const { data: categories = [] } = useQuery({ queryKey: ['categories'], queryFn: () => categoriesApi.list(), enabled: !!ctxMenu })
   const { data: tags = [] } = useQuery({ queryKey: ['tags'], queryFn: () => tagsApi.list(), enabled: !!ctxMenu })
@@ -20,10 +24,10 @@ export default function PaperCard({ paper }) {
   const close = () => setCtxMenu(null)
 
   const addCat = async (cid) => {
-    try { const d = await papersApi.get(paper.id); await papersApi.setCategories(paper.id, [...(d.categories||[]).map(c=>c.id), cid]); doRefresh(); close() } catch(e){alert(e.message)}
+    try { const existing = (paper.categories||[]).map(c=>c.id); await papersApi.setCategories(paper.id, [...existing, cid]); doRefresh(); close() } catch(e){alert(e.message)}
   }
   const toggleTag = async (tid) => {
-    try { const d = await papersApi.get(paper.id); const et = d.tags||[]; const has = et.some(t=>t.id===tid); await papersApi.setTags(paper.id, has ? et.filter(t=>t.id!==tid).map(t=>t.id) : [...et.map(t=>t.id), tid]); doRefresh(); close() } catch(e){alert(e.message)}
+    try { const et = paper.tags||[]; const has = et.some(t=>t.id===tid); await papersApi.setTags(paper.id, has ? et.filter(t=>t.id!==tid).map(t=>t.id) : [...et.map(t=>t.id), tid]); doRefresh(); close() } catch(e){alert(e.message)}
   }
   const del = async () => {
     if (!confirm(`确定删除「${paper.title?.substring(0, 50)}」？`)) return
@@ -39,11 +43,11 @@ export default function PaperCard({ paper }) {
       <div className="flex items-start gap-2">
         <FileText size={16} className="text-gray-400 mt-0.5 flex-shrink-0" />
         <div className="min-w-0 flex-1">
-          <h3 className="text-sm font-medium text-gray-800 line-clamp-2 leading-snug">{paper.title || '未命名文献'}</h3>
-          {authorText && <p className="text-xs text-gray-500 mt-1 line-clamp-1">{authorText}</p>}
-          <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-400">
-            {paper.year && <span><Calendar size={11} />{paper.year}</span>}
-            {paper.journal && <span className="line-clamp-1">{paper.journal}</span>}
+          <h3 className="text-sm font-medium line-clamp-2 leading-snug" style={{color: colors.title}}>{paper.title || '未命名文献'}</h3>
+          {authorText && <p className="text-xs mt-1 line-clamp-1" style={{color: colors.author}}>{authorText}</p>}
+          <div className="flex items-center gap-3 mt-1.5 text-xs">
+            {paper.year && <span className="inline-flex items-center gap-1" style={{color: colors.year}}><Zap size={11} className="text-purple-500" />{paper.year}</span>}
+            {paper.journal && <span className="line-clamp-1" style={{color: colors.journal}}>{paper.journal}</span>}
           </div>
           {paper.tags?.length > 0 && <div className="flex flex-wrap gap-1 mt-1.5">{paper.tags.map(t => <TagBadge key={t.id} tag={t} />)}</div>}
           {paper.categories?.length > 0 && <div className="flex flex-wrap gap-1 mt-1">{paper.categories.map(c => <span key={c.id} className="text-xs text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded">📁{c.name}</span>)}</div>}
