@@ -43,16 +43,16 @@ function App() {
           <p className="text-sm text-gray-500 mb-6">AI 驱动的文献深度阅读工具</p>
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6 text-left">
             <p className="text-sm font-medium text-yellow-800 mb-2">未检测到本地服务</p>
-            <p className="text-xs text-yellow-700 mb-2">下载 ZIP 压缩包 → 解压 → 双击 paperpal-backend.exe</p>
+            <p className="text-xs text-yellow-700 mb-2">下载 exe → 双击运行 → 选储存文件夹</p>
             <p className="text-xs text-yellow-700 font-medium">运行后打开 http://localhost:8000</p>
           </div>
           <div className="space-y-2 mb-4">
             <a href="https://github.com/WLT40/Paperpal/raw/master/docs/paperpal-backend.zip"
               className="block w-full py-3 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">📥 线路一：GitHub 下载</a>
-            <a href="https://pan.baidu.com/s/1ux8Zhjc300sW3rPgUe1UqA?pwd=y2mc" target="_blank"
+            <a href="https://pan.baidu.com/s/1xyx_iyPXjFSJ93HnfMJubQ?pwd=e6hk" target="_blank"
               className="block w-full py-3 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700">📥 线路二：百度网盘（提取码 y2mc）</a>
           </div>
-          <p className="text-xs text-gray-400">下载解压后，双击 paperpal-backend.exe，打开 http://localhost:8000 注册使用。</p>
+          <p className="text-xs text-gray-400">下载后双击运行，选文件夹，托盘图标出现后打开 http://localhost:8000 注册使用。</p>
         </div>
       </div>
     );
