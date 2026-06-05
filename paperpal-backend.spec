@@ -3,8 +3,10 @@ from PyInstaller.utils.hooks import collect_all
 
 datas = [('D:/paperpal/backend/app', 'app')]
 binaries = []
-hiddenimports = ['uvicorn', 'fastapi', 'sqlalchemy', 'aiosqlite', 'pymupdf', 'httpx', 'tkinter', 'passlib', 'pyjwt', 'jwt', 'python-docx', 'fastapi.middleware', 'fastapi.middleware.cors', 'fastapi.staticfiles', 'fastapi.responses', 'starlette.middleware', 'starlette.middleware.cors', 'starlette.staticfiles', 'starlette.responses', 'starlette.routing']
+hiddenimports = ['uvicorn', 'fastapi', 'sqlalchemy', 'aiosqlite', 'pymupdf', 'httpx', 'tkinter', 'passlib', 'bcrypt', 'passlib.handlers.bcrypt', 'pyjwt', 'jwt', 'python-docx', 'fastapi.middleware', 'fastapi.middleware.cors', 'fastapi.staticfiles', 'fastapi.responses', 'starlette.middleware', 'starlette.middleware.cors', 'starlette.staticfiles', 'starlette.responses', 'starlette.routing', 'python-multipart', 'aiofiles']
 tmp_ret = collect_all('tkinter')
+datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
+tmp_ret = collect_all('pymupdf')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
 
