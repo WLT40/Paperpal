@@ -1,66 +1,40 @@
-import { useState, useEffect } from 'react';
-import { Routes, Route } from 'react-router-dom';
-import { api } from './api/client';
-import LoginPage from './components/auth/LoginPage';
-import AppLayout from './components/layout/AppLayout';
-
 function App() {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [backendOnline, setBackendOnline] = useState(false);
-  const [checking, setChecking] = useState(true);
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+      <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md text-center">
+        <h1 className="text-2xl font-bold text-gray-800 mb-2">⚡ PaperPal</h1>
+        <p className="text-sm text-gray-500 mb-6">AI 驱动的文献深度阅读工具</p>
 
-  useEffect(() => {
-    fetch('http://localhost:8000/api/health')
-      .then(r => r.ok ? r.json() : Promise.reject())
-      .then(() => setBackendOnline(true))
-      .catch(() => setBackendOnline(false))
-      .finally(() => setChecking(false));
-  }, []);
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 text-left">
+          <p className="text-sm font-semibold text-blue-800 mb-2">📥 下载后端程序</p>
+          <p className="text-xs text-blue-700 mb-2">下载后双击运行，选文件夹，托盘图标出现后浏览器会自动打开。</p>
+          <p className="text-xs text-blue-700 font-medium">然后打开 http://localhost:8000 注册使用</p>
+        </div>
 
-  useEffect(() => {
-    if (!backendOnline) return;
-    const token = api.getToken();
-    if (token) {
-      fetch('http://localhost:8000/api/auth/me', { headers: { Authorization: `Bearer ${token}` } })
-        .then(r => r.ok ? r.json() : Promise.reject())
-        .then(data => setUser(data))
-        .catch(() => api.clearToken())
-        .finally(() => setLoading(false));
-    } else { setLoading(false); }
-    const h = () => setUser(null);
-    window.addEventListener('paperpal-auth-error', h);
-    return () => window.removeEventListener('paperpal-auth-error', h);
-  }, [backendOnline]);
+        <div className="space-y-3 mb-4">
+          <a href="https://github.com/WLT40/Paperpal/raw/master/docs/paperpal-backend.exe"
+            className="block w-full py-3 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">
+            📥 线路一：GitHub 下载
+          </a>
+          <a href="https://pan.baidu.com/s/1xyx_iyPXjFSJ93HnfMJubQ?pwd=e6hk" target="_blank"
+            className="block w-full py-3 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors">
+            📥 线路二：百度网盘下载（提取码 e6hk）
+          </a>
+        </div>
 
-  if (checking) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><p className="text-gray-400">正在连接本地服务...</p></div>;
+        <div className="text-xs text-gray-400 space-y-1">
+          <p>下载后双击运行 → 选储存文件夹 → 托盘出现 ✅</p>
+          <p>浏览器打开 <code className="bg-gray-100 px-1 rounded">http://localhost:8000</code> → 注册登录 → 开始使用</p>
+        </div>
 
-  if (!backendOnline) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-        <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md text-center">
-          <h1 className="text-2xl font-bold text-gray-800 mb-4">⚡ PaperPal</h1>
-          <p className="text-sm text-gray-500 mb-6">AI 驱动的文献深度阅读工具</p>
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6 text-left">
-            <p className="text-sm font-medium text-yellow-800 mb-2">未检测到本地服务</p>
-            <p className="text-xs text-yellow-700 mb-2">下载 exe → 双击运行 → 选储存文件夹</p>
-            <p className="text-xs text-yellow-700 font-medium">运行后打开 http://localhost:8000</p>
-          </div>
-          <div className="space-y-2 mb-4">
-            <a href="https://github.com/WLT40/Paperpal/raw/master/docs/paperpal-backend.zip"
-              className="block w-full py-3 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">📥 线路一：GitHub 下载</a>
-            <a href="https://pan.baidu.com/s/1xyx_iyPXjFSJ93HnfMJubQ?pwd=e6hk" target="_blank"
-              className="block w-full py-3 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700">📥 线路二：百度网盘（提取码 y2mc）</a>
-          </div>
-          <p className="text-xs text-gray-400">下载后双击运行，选文件夹，托盘图标出现后打开 http://localhost:8000 注册使用。</p>
+        <div className="mt-6 pt-4 border-t border-gray-100">
+          <a href="https://github.com/WLT40" target="_blank" className="text-xs text-gray-400 hover:text-blue-500">WLT40@GitHub</a>
+          <span className="text-xs text-gray-300 mx-2">|</span>
+          <span className="text-xs text-gray-400">PaperPal v0.2</span>
         </div>
       </div>
-    );
-  }
-
-  if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><p className="text-gray-400">加载中...</p></div>;
-  if (!user) return <LoginPage onLogin={setUser} />;
-  return <Routes><Route path="/*" element={<AppLayout user={user} onLogout={() => { api.clearToken(); setUser(null); }} />} /></Routes>;
+    </div>
+  )
 }
 
-export default App;
+export default App
