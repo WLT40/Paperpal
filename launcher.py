@@ -1,4 +1,4 @@
-"""PaperPal Backend Launcher v7 — minimize to tray after start"""
+"""PaperPal Backend Launcher v8 — proper system tray icon"""
 import os, sys, json, webbrowser, threading, time
 
 CONFIG_FILE = "paperpal_config.json"
@@ -9,13 +9,11 @@ def get_data_dir():
 
 def get_config():
     cfg = os.path.join(get_data_dir(), CONFIG_FILE)
-    if os.path.exists(cfg):
-        with open(cfg) as f: return json.load(f)
+    if os.path.exists(cfg): return json.load(open(cfg))
     return None
 
 def save_config(data):
-    with open(os.path.join(get_data_dir(), CONFIG_FILE), "w") as f:
-        json.dump(data, f, ensure_ascii=False)
+    json.dump(data, open(os.path.join(get_data_dir(), CONFIG_FILE), "w"), ensure_ascii=False)
 
 def first_run():
     import tkinter as tk
@@ -26,50 +24,16 @@ def first_run():
     if not folder: root.destroy(); return None
     os.makedirs(os.path.join(folder, "data"), exist_ok=True)
     os.makedirs(os.path.join(folder, "pdf_storage"), exist_ok=True)
-    cfg = {"storage_dir": folder}; save_config(cfg); root.destroy()
-    messagebox.showinfo("设置完成", f"数据: {folder}\n\n浏览器将自动打开。\n右键任务栏 PaperPal 图标可退出。")
-    return cfg
-
-def create_tray():
-    import tkinter as tk
-    tray = tk.Tk()
-    tray.title("PaperPal")
-    tray.overrideredirect(True)  # no title bar
-    tray.geometry("200x28+{}+{}".format(tray.winfo_screenwidth()-210, tray.winfo_screenheight()-60))
-    tray.attributes('-topmost', True)
-    tray.configure(bg='#4A90D9')
-
-    def open_web():
-        webbrowser.open("http://localhost:8000")
-
-    def quit_app():
-        tray.destroy()
-        os._exit(0)
-
-    menu = tk.Menu(tray, tearoff=0)
-    menu.add_command(label="🌐 打开 PaperPal", command=open_web)
-    menu.add_separator()
-    menu.add_command(label="❌ 退出 PaperPal", command=quit_app)
-
-    def show_menu(e):
-        menu.post(e.x_root, e.y_root)
-
-    f = tk.Frame(tray, bg='#4A90D9')
-    f.pack(fill='both', expand=True)
-    tk.Label(f, text="⚡ PaperPal", font=("Microsoft YaHei", 9, "bold"), fg="white", bg='#4A90D9').pack(side='left', padx=(8, 4))
-    tk.Label(f, text="右键退出", font=("Microsoft YaHei", 7), fg="#cce0ff", bg='#4A90D9').pack(side='left')
-
-    f.bind("<Button-3>", show_menu)
-    f.bind("<Double-Button-1>", lambda e: open_web())
-    tray.protocol("WM_DELETE_WINDOW", quit_app)
-
-    return tray
+    save_config({"storage_dir": folder})
+    root.destroy()
+    return folder
 
 def main():
     cfg = get_config()
     if not cfg or not os.path.exists(cfg.get("storage_dir", "")):
-        cfg = first_run()
-        if not cfg: return
+        folder = first_run()
+        if not folder: return
+        cfg = {"storage_dir": folder}
 
     folder = cfg["storage_dir"]
     os.environ["PDF_STORAGE_DIR"] = os.path.join(folder, "pdf_storage")
@@ -78,11 +42,9 @@ def main():
 
     if getattr(sys, 'frozen', False):
         sys.path.insert(0, sys._MEIPASS)
-
-    # Fix stdout for --noconsole builds (uvicorn needs valid stdout)
-    if getattr(sys, 'frozen', False) and sys.stdout is None:
-        sys.stdout = open(os.devnull, 'w')
-        sys.stderr = open(os.devnull, 'w')
+        if sys.stdout is None:
+            sys.stdout = open(os.devnull, 'w')
+            sys.stderr = open(os.devnull, 'w')
 
     import uvicorn
 
@@ -91,21 +53,41 @@ def main():
             uvicorn.run("app.main:app", host="0.0.0.0", port=8000, log_level="warning")
         except Exception as e:
             import traceback
-            err_file = os.path.join(get_data_dir(), "paperpal-error.log")
-            with open(err_file, "w", encoding="utf-8") as f:
+            with open(os.path.join(get_data_dir(), "paperpal-error.log"), "w", encoding="utf-8") as f:
                 f.write(traceback.format_exc())
-            input(f"启动失败: {e}\n按回车退出...")
 
     threading.Thread(target=run_server, daemon=True).start()
+    time.sleep(1.5)
 
-    def open_browser():
-        time.sleep(2)
+    # System tray icon
+    from PIL import Image, ImageDraw
+    import pystray
+
+    # Create a simple icon (purple lightning bolt on transparent bg)
+    img = Image.new('RGBA', (64, 64), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    draw.rounded_rectangle([8, 4, 56, 60], radius=12, fill='#7C3AED')
+    draw.polygon([(28, 14), (44, 32), (32, 32), (38, 52), (20, 34), (32, 34)], fill='white')
+
+    def open_web(icon, item):
         webbrowser.open("http://localhost:8000")
 
-    threading.Thread(target=open_browser, daemon=True).start()
+    def quit_app(icon, item):
+        icon.stop()
+        os._exit(0)
 
-    tray = create_tray()
-    tray.mainloop()
+    menu = pystray.Menu(
+        pystray.MenuItem("🌐 打开 PaperPal", open_web, default=True),
+        pystray.Menu.SEPARATOR,
+        pystray.MenuItem("❌ 退出", quit_app),
+    )
+
+    icon = pystray.Icon("PaperPal", img, "PaperPal", menu)
+
+    # Open browser
+    threading.Thread(target=lambda: (time.sleep(0.5), webbrowser.open("http://localhost:8000")), daemon=True).start()
+
+    icon.run()
 
 if __name__ == "__main__":
     main()
