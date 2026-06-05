@@ -70,9 +70,10 @@ def first_run():
     cb.pack(side="left", padx=5)
     tk.Button(bf, text="🌐 打开 PaperPal (localhost:8000)", command=open_web, font=("Microsoft YaHei", 10), bg="#4CAF50", fg="white", padx=20, pady=5, bd=0, cursor="hand2").pack(side="left", padx=5)
 
-    tk.Label(w, text="⚠️ 请保持此窗口打开，关闭窗口将停止服务", font=("Microsoft YaHei", 9), fg="red").pack(pady=(5, 0))
-    tk.Label(w, text="服务器即将启动，关闭此窗口后自动开始", font=("Microsoft YaHei", 8), fg="gray").pack(pady=(0, 10))
+    tk.Label(w, text="⚠️ 请复制账号密码后关闭此窗口", font=("Microsoft YaHei", 9), fg="red").pack(pady=(5, 0))
+    tk.Label(w, text="关闭后自动启动服务，保持黑窗口打开，浏览器访问 localhost:8000", font=("Microsoft YaHei", 8), fg="gray").pack(pady=(0, 10))
 
+    w.protocol("WM_DELETE_WINDOW", lambda: root.destroy())
     root.deiconify()
     root.mainloop()
     return cfg
