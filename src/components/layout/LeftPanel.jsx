@@ -21,13 +21,14 @@ function CategoryNode({ cat, depth, selectedId, onSelect, onDelete, onCreateChil
     <div>
       <div className={`flex items-center justify-between px-2 py-1.5 rounded text-sm cursor-pointer group hover:bg-gray-100 ${selectedId === cat.id ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}`}
         style={{ paddingLeft: 8 + depth * 14 }}>
-        <div className="flex items-center gap-1 min-w-0 flex-1" onClick={() => setExpanded(!expanded)}>
+        <div className="flex items-center gap-1 min-w-0 flex-1"
+          onClick={() => { onSelect(cat.id); setExpanded(!expanded) }}>
           <span className="p-0.5">{expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}</span>
           <span className="truncate">{expanded ? '📂' : '📁'} {cat.name}</span>
         </div>
         <span className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100">
           <button onClick={e => { e.stopPropagation(); onCreateChild(cat.id) }} className="p-0.5 hover:bg-blue-100 rounded text-blue-500"><Plus size={12} /></button>
-          <button onClick={e => { e.stopPropagation(); onDelete(cat.id) }} className="p-0.5 hover:bg-red-100 rounded text-red-500"><Trash2 size={12} /></button>
+          <button onClick={e => { e.stopPropagation(); if (confirm('确定删除分类「'+cat.name+'」？子分类也将被删除。')) onDelete(cat.id) }} className="p-0.5 hover:bg-red-100 rounded text-red-500"><Trash2 size={12} /></button>
         </span>
       </div>
       {expanded && (

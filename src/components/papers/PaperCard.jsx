@@ -10,8 +10,27 @@ import TagBadge from '../tags/TagBadge'
 const DC = { title: '#1a1a1a', author: '#666', year: '#888', journal: '#888' };
 function getColors() { try { return {...DC,...JSON.parse(localStorage.getItem('pp-colors')||'{}')} } catch { return DC } }
 
+function CategoryMenuItem({ cat, allCats, addCat, depth, paper }) {
+  const children = allCats.filter(c => c.parent_id === cat.id)
+  const isIn = (paper.categories||[]).some(c => c.id === cat.id)
+  return (
+    <div>
+      <button onClick={() => addCat(cat.id)}
+        className={`w-full text-left px-3 py-1 text-xs hover:bg-blue-50 flex items-center gap-2 ${isIn ? 'text-blue-500 bg-blue-50' : 'text-gray-700'}`}
+        style={{ paddingLeft: 12 + depth * 14 }}>
+        <FolderPlus size={10} className={isIn ? 'text-blue-400' : 'text-blue-300'} />
+        <span className="truncate">{'📁'} {cat.name}</span>
+        {isIn && <span className="ml-auto text-blue-400">✓</span>}
+      </button>
+      {children.map(child => (
+        <CategoryMenuItem key={child.id} cat={child} allCats={allCats} addCat={addCat} depth={depth + 1} paper={paper} />
+      ))}
+    </div>
+  )
+}
+
 export default function PaperCard({ paper }) {
-  const { openPaper, selectedPaperId, doRefresh, colorKey } = useAppStore()
+  const { openPaper, selectedPaperId, doRefresh, colorKey, selectedCategoryId } = useAppStore()
   const isSelected = selectedPaperId === paper.id
   const queryClient = useQueryClient()
   const [ctxMenu, setCtxMenu] = useState(null)
@@ -28,6 +47,10 @@ export default function PaperCard({ paper }) {
   }
   const toggleTag = async (tid) => {
     try { const et = paper.tags||[]; const has = et.some(t=>t.id===tid); await papersApi.setTags(paper.id, has ? et.filter(t=>t.id!==tid).map(t=>t.id) : [...et.map(t=>t.id), tid]); doRefresh(); close() } catch(e){alert(e.message)}
+  }
+  const removeFromCat = async () => {
+    const updated = (paper.categories||[]).filter(c => c.id !== selectedCategoryId).map(c => c.id)
+    try { await papersApi.setCategories(paper.id, updated); doRefresh(); close() } catch(e){alert(e.message)}
   }
   const del = async () => {
     if (!confirm(`确定删除「${paper.title?.substring(0, 50)}」？`)) return
@@ -57,10 +80,19 @@ export default function PaperCard({ paper }) {
     {ctxMenu && <div className="fixed inset-0 z-50" onClick={close}>
       <div style={{ position: 'fixed', left: ctxMenu.x, top: ctxMenu.y, zIndex: 60 }} className="bg-white rounded-lg shadow-xl border border-gray-200 py-1 min-w-[180px]" onClick={e => e.stopPropagation()}>
         <div className="px-3 py-1.5 text-xs text-gray-400 font-medium">添加到分类</div>
-        {categories.map(c => <button key={c.id} onClick={() => addCat(c.id)} className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 flex items-center gap-2"><FolderPlus size={12} className="text-blue-500" /> {c.name}</button>)}
+        {categories.filter(c => !c.parent_id).map(root => (
+          <CategoryMenuItem key={root.id} cat={root} allCats={categories} addCat={addCat} depth={0} paper={paper} />
+        ))}
         <div className="border-t border-gray-100 my-1" />
         <div className="px-3 py-1.5 text-xs text-gray-400 font-medium">标签</div>
         {tags.map(t => { const has = (paper.tags||[]).some(x=>x.id===t.id); return <button key={t.id} onClick={() => toggleTag(t.id)} className={`w-full text-left px-3 py-1.5 text-xs hover:bg-blue-50 flex items-center gap-2 ${has?'text-blue-600':'text-gray-700'}`}>{has?<Check size={12} className="text-green-500" />:<TagIcon size={12} />}<span className="w-2 h-2 rounded-full" style={{backgroundColor:t.color}} /> {t.name}</button> })}
+        <div className="border-t border-gray-100 my-1" />
+        {selectedCategoryId && (paper.categories||[]).some(c => c.id === selectedCategoryId) && (
+          <>
+            <div className="border-t border-gray-100 my-1" />
+            <button onClick={removeFromCat} className="w-full text-left px-3 py-1.5 text-xs text-orange-500 hover:bg-orange-50 flex items-center gap-2"><X size={12} /> 移出此分类</button>
+          </>
+        )}
         <div className="border-t border-gray-100 my-1" />
         <button onClick={del} className="w-full text-left px-3 py-1.5 text-xs text-red-500 hover:bg-red-50 flex items-center gap-2"><Trash2 size={12} /> 删除文献</button>
         <button onClick={close} className="w-full text-left px-3 py-1.5 text-xs text-gray-500 hover:bg-gray-100 flex items-center gap-2"><X size={12} /> 关闭</button>
