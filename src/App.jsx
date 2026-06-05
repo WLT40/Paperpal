@@ -49,11 +49,17 @@ function App() {
             <p className="text-sm font-medium text-yellow-800 mb-2">⚡ 未检测到本地服务</p>
             <p className="text-xs text-yellow-700">请先下载并运行 PaperPal 后端程序，选择储存路径后刷新页面。</p>
           </div>
-          <a href="https://github.com/WLT40/Paperpal/raw/master/public/paperpal-backend.exe"
-            className="block w-full py-3 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 mb-3">
-            📥 下载后端程序 (Windows .exe)
-          </a>
-          <p className="text-xs text-gray-400">下载后双击运行，按提示选择储存文件夹，然后刷新网页即可使用。</p>
+          <div className="space-y-2 mb-4">
+            <a href="https://github.com/WLT40/Paperpal/raw/master/public/paperpal-backend.exe"
+              className="block w-full py-3 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">
+              📥 GitHub 下载（需梯子，速度快）
+            </a>
+            <a href="https://pan.baidu.com/s/1ux8Zhjc300sW3rPgUe1UqA?pwd=y2mc" target="_blank"
+              className="block w-full py-3 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700">
+              📥 百度网盘下载（无需梯子，提取码 y2mc）
+            </a>
+          </div>
+          <p className="text-xs text-gray-400">下载后双击运行，选择任意文件夹储存数据，然后刷新网页即可使用。</p>
         </div>
       </div>
     );
