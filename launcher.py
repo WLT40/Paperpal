@@ -1,4 +1,4 @@
-"""PaperPal Backend Launcher v4 — start server first, then show credentials"""
+"""PaperPal Backend Launcher v5 — tkinter in main thread, wait then start server"""
 import os, sys, json, hashlib, secrets, webbrowser, threading, time
 
 CONFIG_FILE = "paperpal_config.json"
@@ -19,7 +19,7 @@ def save_config(data):
 
 def first_run():
     import tkinter as tk
-    from tkinter import filedialog, messagebox
+    from tkinter import filedialog
 
     root = tk.Tk()
     root.withdraw()
@@ -34,59 +34,47 @@ def first_run():
 
     email = f"user{secrets.randbelow(999999):06d}@paperpal.local"
     password = secrets.token_hex(4)
-    salt = secrets.token_hex(16)
-    pw_hash = salt + "$" + hashlib.sha256((salt + password).encode()).hexdigest()
 
     cfg = {"storage_dir": folder, "email": email, "password": password}
     save_config(cfg)
 
-    # Show credentials in a simple window
-    cred_win = tk.Toplevel(root)
-    cred_win.title("PaperPal 账号已生成")
-    cred_win.geometry("500x370")
-    cred_win.resizable(False, False)
+    # Show credentials window
+    w = tk.Toplevel(root)
+    w.title("PaperPal 账号已生成")
+    w.geometry("500x370")
+    w.resizable(False, False)
 
-    tk.Label(cred_win, text="你的 PaperPal 账号", font=("Microsoft YaHei", 14, "bold")).pack(pady=(20, 8))
-    tk.Label(cred_win, text="请截图保存，然后打开浏览器访问 http://localhost:8000", font=("Microsoft YaHei", 9), fg="gray").pack()
+    tk.Label(w, text="你的 PaperPal 账号", font=("Microsoft YaHei", 14, "bold")).pack(pady=(20, 8))
+    tk.Label(w, text="请截图保存，然后打开浏览器访问 http://localhost:8000", font=("Microsoft YaHei", 9), fg="gray").pack()
 
-    frame = tk.Frame(cred_win, bg="white", relief="solid", bd=1)
-    frame.pack(pady=10, padx=20, fill="x")
-
-    info_text = f"邮箱：{email}\n密码：{password}\n\n打开浏览器访问：http://localhost:8000\n\n储存路径：{folder}"
-    text_widget = tk.Text(frame, height=7, font=("Consolas", 11), wrap="word", bd=0, padx=10, pady=10)
-    text_widget.insert("1.0", info_text)
-    text_widget.configure(state="disabled")
-    text_widget.pack(fill="x")
+    f = tk.Frame(w, bg="white", relief="solid", bd=1)
+    f.pack(pady=10, padx=20, fill="x")
+    info = f"邮箱：{email}\n密码：{password}\n\n打开浏览器访问：http://localhost:8000\n\n储存路径：{folder}"
+    tw = tk.Text(f, height=7, font=("Consolas", 11), wrap="word", bd=0, padx=10, pady=10)
+    tw.insert("1.0", info)
+    tw.configure(state="disabled")
+    tw.pack(fill="x")
 
     def copy_all():
         root.clipboard_clear()
         root.clipboard_append(f"邮箱：{email}\n密码：{password}")
-        copy_btn.config(text="已复制 ✓")
-        copy_btn.after(2000, lambda: copy_btn.config(text="📋 复制账号密码"))
+        cb.config(text="已复制 ✓")
+        cb.after(2000, lambda: cb.config(text="📋 复制账号密码"))
 
     def open_web():
         webbrowser.open("http://localhost:8000")
 
-    btn_frame = tk.Frame(cred_win)
-    btn_frame.pack(pady=15)
+    bf = tk.Frame(w)
+    bf.pack(pady=15)
+    cb = tk.Button(bf, text="📋 复制账号密码", command=copy_all, font=("Microsoft YaHei", 10), bg="#4A90D9", fg="white", padx=20, pady=5, bd=0, cursor="hand2")
+    cb.pack(side="left", padx=5)
+    tk.Button(bf, text="🌐 打开 PaperPal (localhost:8000)", command=open_web, font=("Microsoft YaHei", 10), bg="#4CAF50", fg="white", padx=20, pady=5, bd=0, cursor="hand2").pack(side="left", padx=5)
 
-    copy_btn = tk.Button(btn_frame, text="📋 复制账号密码", command=copy_all, font=("Microsoft YaHei", 10), bg="#4A90D9", fg="white", padx=20, pady=5, bd=0, cursor="hand2")
-    copy_btn.pack(side="left", padx=5)
+    tk.Label(w, text="⚠️ 请保持此窗口打开，关闭窗口将停止服务", font=("Microsoft YaHei", 9), fg="red").pack(pady=(5, 0))
+    tk.Label(w, text="服务器即将启动，关闭此窗口后自动开始", font=("Microsoft YaHei", 8), fg="gray").pack(pady=(0, 10))
 
-    web_btn = tk.Button(btn_frame, text="🌐 打开 PaperPal (localhost:8000)", command=open_web, font=("Microsoft YaHei", 10), bg="#4CAF50", fg="white", padx=20, pady=5, bd=0, cursor="hand2")
-    web_btn.pack(side="left", padx=5)
-
-    tk.Label(cred_win, text="⚠️ 请保持此窗口打开，关闭窗口将停止服务", font=("Microsoft YaHei", 9), fg="red").pack(pady=(5, 0))
-    tk.Label(cred_win, text="点击下方按钮打开网站，复制账号密码登录", font=("Microsoft YaHei", 8), fg="gray").pack(pady=(0, 10))
-
-    # Start the tkinter event loop in a separate thread so main() can continue
-    def tk_loop():
-        cred_win.lift()
-        cred_win.focus_force()
-        root.mainloop()
-
-    t = threading.Thread(target=tk_loop, daemon=True)
-    t.start()
+    root.deiconify()
+    root.mainloop()
     return cfg
 
 
