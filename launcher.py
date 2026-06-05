@@ -34,9 +34,10 @@ def create_tray():
     import tkinter as tk
     tray = tk.Tk()
     tray.title("PaperPal")
-    tray.geometry("220x60+{}+{}".format(tray.winfo_screenwidth()-230, tray.winfo_screenheight()-100))
-    tray.resizable(False, False)
+    tray.overrideredirect(True)  # no title bar
+    tray.geometry("200x28+{}+{}".format(tray.winfo_screenwidth()-210, tray.winfo_screenheight()-60))
     tray.attributes('-topmost', True)
+    tray.configure(bg='#4A90D9')
 
     def open_web():
         webbrowser.open("http://localhost:8000")
@@ -45,19 +46,21 @@ def create_tray():
         tray.destroy()
         os._exit(0)
 
-    menubar = tk.Menu(tray, tearoff=0)
-    menubar.add_command(label="🌐 打开 PaperPal", command=open_web)
-    menubar.add_separator()
-    menubar.add_command(label="❌ 退出", command=quit_app)
+    menu = tk.Menu(tray, tearoff=0)
+    menu.add_command(label="🌐 打开 PaperPal", command=open_web)
+    menu.add_separator()
+    menu.add_command(label="❌ 退出 PaperPal", command=quit_app)
 
     def show_menu(e):
-        menubar.post(e.x_root, e.y_root)
+        menu.post(e.x_root, e.y_root)
 
-    tk.Label(tray, text="⚡ PaperPal 运行中", font=("Microsoft YaHei", 10, "bold")).pack(pady=(8, 0))
-    tk.Label(tray, text="右键此处 → 退出\n双击 → 打开网页", font=("Microsoft YaHei", 8), fg="gray").pack(pady=(2, 5))
+    f = tk.Frame(tray, bg='#4A90D9')
+    f.pack(fill='both', expand=True)
+    tk.Label(f, text="⚡ PaperPal", font=("Microsoft YaHei", 9, "bold"), fg="white", bg='#4A90D9').pack(side='left', padx=(8, 4))
+    tk.Label(f, text="右键退出", font=("Microsoft YaHei", 7), fg="#cce0ff", bg='#4A90D9').pack(side='left')
 
-    tray.bind("<Button-3>", show_menu)
-    tray.bind("<Double-Button-1>", lambda e: open_web())
+    f.bind("<Button-3>", show_menu)
+    f.bind("<Double-Button-1>", lambda e: open_web())
     tray.protocol("WM_DELETE_WINDOW", quit_app)
 
     return tray
@@ -75,6 +78,11 @@ def main():
 
     if getattr(sys, 'frozen', False):
         sys.path.insert(0, sys._MEIPASS)
+
+    # Fix stdout for --noconsole builds (uvicorn needs valid stdout)
+    if getattr(sys, 'frozen', False) and sys.stdout is None:
+        sys.stdout = open(os.devnull, 'w')
+        sys.stderr = open(os.devnull, 'w')
 
     import uvicorn
 
