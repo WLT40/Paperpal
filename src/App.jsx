@@ -18,7 +18,7 @@ function App() {
           </a>
           <a href="https://pan.baidu.com/s/1ESBtzZrwIBU2JyAUvE6Aww?pwd=fi42" target="_blank"
             className="block w-full py-3 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors">
-            📥 线路二：百度网盘下载（提取码 e6hk）
+            📥 线路二：百度网盘下载（提取码 fi42）
           </a>
         </div>
 
