@@ -16,7 +16,7 @@ function App() {
             className="block w-full py-3 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">
             📥 线路一：GitHub 下载
           </a>
-          <a href="https://pan.baidu.com/s/1xyx_iyPXjFSJ93HnfMJubQ?pwd=e6hk" target="_blank"
+          <a href="https://pan.baidu.com/s/1ESBtzZrwIBU2JyAUvE6Aww?pwd=fi42" target="_blank"
             className="block w-full py-3 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors">
             📥 线路二：百度网盘下载（提取码 e6hk）
           </a>
